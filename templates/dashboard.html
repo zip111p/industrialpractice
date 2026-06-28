@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="kk">
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" href="/static/new-favicon.ico?v=2" type="image/png"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 Copilot — Басты бет</title>
+  <link rel="stylesheet" href="/static/style.css?v=210"/>
+  <style>
+    /* ── Hero banner ────────────────────────────────────────────────────── */
+    .dashboard-hero {
+      background: linear-gradient(135deg, #3A6580 0%, #4F88A6 40%, #659BB9 100%);
+      padding: 28px 0 0;
+      margin-bottom: 28px;
+      position: relative;
+      overflow: hidden;
+    }
+    .dashboard-hero::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 300px; height: 300px;
+      background: rgba(255,255,255,.04);
+      border-radius: 50%;
+    }
+    .dashboard-hero::after {
+      content: '';
+      position: absolute;
+      bottom: -40px; left: 10%;
+      width: 200px; height: 200px;
+      background: rgba(255,255,255,.03);
+      border-radius: 50%;
+    }
+    .dashboard-hero .page-header { margin-bottom: 20px; position: relative; z-index: 1; }
+    .dashboard-hero .page-header h2 { color: #fff; font-size: 24px; }
+    .dashboard-hero .page-subtitle { color: rgba(255,255,255,.75) !important; }
+
+    /* category tabs inside hero */
+    .dashboard-hero .category-tabs {
+      background: rgba(255,255,255,.15) !important;
+      margin-bottom: 18px !important;
+      position: relative; z-index: 1;
+    }
+    .dashboard-hero .category-btn { color: rgba(255,255,255,.8) !important; }
+    .dashboard-hero .category-btn.active {
+      background: rgba(255,255,255,.25) !important;
+      color: #fff !important;
+      box-shadow: none !important;
+    }
+
+    /* subject tabs inside hero */
+    .dashboard-hero .subject-tabs {
+      position: relative; z-index: 1;
+      padding-bottom: 20px;
+      margin-bottom: 0 !important;
+    }
+    .dashboard-hero a.subject-tab,
+    .dashboard-hero .subject-tab {
+      background: rgba(255,255,255,.12) !important;
+      border-color: rgba(255,255,255,.25) !important;
+      color: rgba(255,255,255,.9) !important;
+      box-shadow: none !important;
+    }
+    .dashboard-hero a.subject-tab:hover,
+    .dashboard-hero .subject-tab:hover {
+      background: rgba(255,255,255,.22) !important;
+      border-color: rgba(255,255,255,.5) !important;
+      color: #fff !important;
+    }
+    .dashboard-hero a.subject-tab.active,
+    .dashboard-hero .subject-tab.active {
+      background: #fff !important;
+      color: #659BB9 !important;
+      border-color: #fff !important;
+      box-shadow: 0 3px 12px rgba(0,0,0,.2) !important;
+    }
+
+    /* bottom fade edge */
+    .hero-edge {
+      height: 20px;
+      background: linear-gradient(to bottom, transparent, var(--grey-100));
+    }
+
+    /* Keep the JUZ40 watermark contained inside the hero (the global rule in
+       style.css is fixed / full-screen, meant for the login page). */
+    .dashboard-hero .bg-watermark {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      z-index: 0; opacity: .82;
+    }
+    .dashboard-hero .hero-layout { position: relative; z-index: 1; }
+
+    /* hero two-column layout */
+    .hero-layout {
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 28px 24px 28px;
+      display: flex;
+      align-items: center;
+      gap: 48px;
+    }
+    .hero-left { flex: 1; min-width: 0; }
+    .hero-right {
+      flex-shrink: 0;
+      width: 290px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hero-mockup {
+      width: 100%;
+      border-radius: 20px;
+      box-shadow: 0 24px 64px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.25);
+      display: block;
+    }
+    @media (max-width: 900px) { .hero-right { display: none; } }
+
+    /* ── Subject tabs: clean wrapping pills with subject colors ─────── */
+    .dashboard-hero .subject-tab {
+      transition: transform .2s cubic-bezier(.34,1.56,.64,1), filter .18s ease, box-shadow .22s ease, opacity .18s ease !important;
+    }
+
+    /* active tab: slightly bigger + bounce in */
+    .dashboard-hero .subject-tab.active {
+      font-size: 14px !important;
+      padding: 10px 22px !important;
+      font-weight: 800 !important;
+      transform: scale(1.04);
+      animation: activeIn .45s cubic-bezier(.34,1.56,.64,1) both;
+    }
+    @keyframes activeIn {
+      0%   { transform:scale(.88); opacity:0; }
+      60%  { transform:scale(1.10); }
+      100% { transform:scale(1.04); opacity:1; }
+    }
+
+    /* spotlight on hover */
+    .dashboard-hero .subject-tabs:hover .subject-tab:not(:hover):not(.active) {
+      opacity: .55 !important;
+      filter: brightness(.9) !important;
+    }
+    .dashboard-hero .subject-tabs:hover .subject-tab:hover:not(.active) {
+      transform: translateY(-3px) scale(1.05) !important;
+      filter: brightness(1.2) !important;
+      z-index: 5;
+    }
+
+    /* subject colors — inactive: colored bg + white text */
+    .dashboard-hero a.subject-tab.s-info   { background:#1E4A5E!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-math   { background:#1A2E85!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-geom   { background:#007E72!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-ms     { background:#008B80!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-phys   { background:#7340D0!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-chem   { background:#1A60CC!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-geo    { background:#0345D8!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-law    { background:#005962!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-kzhist { background:#A83427!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-whist  { background:#7B4020!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-bio    { background:#006040!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-kzlang { background:#84405C!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-kzlit  { background:#B88A10!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-rulang { background:#5757A5!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-rulit  { background:#7B3F1A!important; color:#fff!important; }
+    .dashboard-hero a.subject-tab.s-en     { background:#C0004A!important; color:#fff!important; }
+
+    /* border + inner glow + shadow shared for all inactive colored tabs */
+    .dashboard-hero a.subject-tab:not(.active) {
+      border: 1.5px solid rgba(255,255,255,.30)!important;
+      box-shadow: 0 3px 10px rgba(0,0,0,.30), inset 0 1px 0 rgba(255,255,255,.18)!important;
+      transition: all .18s cubic-bezier(.4,0,.2,1)!important;
+    }
+    /* hover: brightness boost + lift + stronger glow */
+    .dashboard-hero a.subject-tab:not(.active):hover {
+      filter: brightness(1.22)!important;
+      transform: translateY(-2px)!important;
+      border-color: rgba(255,255,255,.55)!important;
+      box-shadow: 0 6px 20px rgba(0,0,0,.38), inset 0 1px 0 rgba(255,255,255,.28)!important;
+    }
+
+    /* active: white bg + subject color text */
+    .dashboard-hero a.subject-tab.active                { background:#fff!important; border-color:#fff!important; box-shadow:0 4px 18px rgba(0,0,0,.28)!important; }
+    .dashboard-hero a.subject-tab.s-info.active         { color:#1E4A5E!important; }
+    .dashboard-hero a.subject-tab.s-math.active         { color:#1A2E85!important; }
+    .dashboard-hero a.subject-tab.s-geom.active         { color:#007E72!important; }
+    .dashboard-hero a.subject-tab.s-ms.active           { color:#008B80!important; }
+    .dashboard-hero a.subject-tab.s-phys.active         { color:#7340D0!important; }
+    .dashboard-hero a.subject-tab.s-chem.active         { color:#1A60CC!important; }
+    .dashboard-hero a.subject-tab.s-geo.active          { color:#0345D8!important; }
+    .dashboard-hero a.subject-tab.s-law.active          { color:#005962!important; }
+    .dashboard-hero a.subject-tab.s-kzhist.active       { color:#A83427!important; }
+    .dashboard-hero a.subject-tab.s-whist.active        { color:#7B4020!important; }
+    .dashboard-hero a.subject-tab.s-bio.active          { color:#006040!important; }
+    .dashboard-hero a.subject-tab.s-kzlang.active       { color:#84405C!important; }
+    .dashboard-hero a.subject-tab.s-kzlit.active        { color:#B88A10!important; }
+    .dashboard-hero a.subject-tab.s-rulang.active       { color:#5757A5!important; }
+    .dashboard-hero a.subject-tab.s-rulit.active        { color:#7B3F1A!important; }
+    .dashboard-hero a.subject-tab.s-en.active           { color:#C0004A!important; }
+
+    /* ═══════════════════════════════════════════════════════════════════
+       DARK BRAND THEME — scoped to this page via body.dash-dark so the
+       shared style.css (used by the report pages) stays light. Most of the
+       work is done by repainting the CSS custom properties; the rest are
+       overrides for the few hardcoded light backgrounds.
+    ═══════════════════════════════════════════════════════════════════ */
+    body.dash-dark {
+      --blue:       #57b8cb;
+      --blue-dark:  #3d9fb2;
+      --blue-light: rgba(87,184,203,.12);
+      --green:      #29a06a;
+      --red:        #ff9b9b;
+      --red-bg:     rgba(255,90,90,.10);
+      --text:       #e8eef1;
+      --grey-50:    rgba(255,255,255,.03);
+      --grey-100:   #071318;
+      --grey-200:   rgba(255,255,255,.12);
+      --grey-300:   rgba(255,255,255,.22);
+      --grey-400:   #6f8893;
+      --grey-500:   #8aa0ab;
+      --grey-600:   #9fb3bd;
+      --grey-700:   #b6c6cd;
+      --grey-800:   #e2edf0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 16% 0%,  rgba(61,159,178,.10), transparent 26%),
+        radial-gradient(circle at 84% 8%,  rgba(36,116,132,.16), transparent 34%),
+        linear-gradient(135deg, #03090b 0%, #06181e 50%, #020506 100%);
+      background-attachment: fixed;
+    }
+
+    /* Navbar */
+    .dash-dark .navbar {
+      background: rgba(6,18,22,.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      border-top: 3px solid var(--blue);
+      box-shadow: 0 2px 18px rgba(0,0,0,.5);
+    }
+    .dash-dark .logo-sm {
+      background: linear-gradient(135deg,#2f7d8d,#1f5662);
+      box-shadow: 0 3px 10px rgba(47,125,141,.5);
+    }
+
+    /* Hero — dark teal instead of bright blue */
+    .dash-dark .dashboard-hero {
+      background:
+        radial-gradient(circle at 80% 18%, rgba(61,159,178,.20), transparent 46%),
+        linear-gradient(135deg, #06222b 0%, #0a3a48 48%, #04161c 100%);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    /* JUZ40 watermark contained within the hero (the global rule is fixed /
+       full-screen — re-anchor it as an absolute, centred layer) and lift the
+       hero content above it. */
+    .dash-dark .dashboard-hero .bg-watermark {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: .82;
+    }
+    .dash-dark .dashboard-hero .hero-layout {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Segmented controls (category tabs + report tab bar) */
+    .dash-dark .category-tabs,
+    .dash-dark .tab-bar { background: rgba(255,255,255,.06) !important; }
+    .dash-dark .category-btn.active {
+      background: rgba(87,184,203,.16) !important;
+      color: #bdeaf3 !important;
+      box-shadow: none !important;
+    }
+
+    /* Cards */
+    .dash-dark .card {
+      background: linear-gradient(180deg, rgba(8,24,29,.94), rgba(3,12,15,.96));
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: 0 18px 48px rgba(0,0,0,.45);
+    }
+    .dash-dark .card-header {
+      background: rgba(255,255,255,.035);
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      color: var(--grey-800);
+    }
+
+    /* Inputs */
+    .dash-dark input[type=text],
+    .dash-dark input[type=password] {
+      background: rgba(0,0,0,.25);
+      border-color: rgba(255,255,255,.14);
+      color: var(--text);
+    }
+    .dash-dark input[type=text]:focus,
+    .dash-dark input[type=password]:focus {
+      background: rgba(0,0,0,.35);
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(87,184,203,.14);
+    }
+
+    /* Pills */
+    .dash-dark .pill {
+      background: rgba(255,255,255,.05);
+      border-color: rgba(255,255,255,.14);
+      color: #cfe0e7;
+    }
+    .dash-dark .pill:hover {
+      background: rgba(87,184,203,.12);
+      border-color: var(--blue);
+      color: #bdeaf3;
+    }
+    .dash-dark .pill.active {
+      background: linear-gradient(180deg,#2f7d8d,#1f5662);
+      border-color: #2f7d8d;
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(31,86,98,.4);
+    }
+
+    /* Course list */
+    .dash-dark .course-item {
+      background: rgba(255,255,255,.04);
+      border-color: rgba(255,255,255,.12);
+    }
+    .dash-dark .course-item:hover {
+      background: rgba(87,184,203,.10);
+      border-color: var(--blue);
+    }
+    .dash-dark .course-item.selected {
+      background: rgba(87,184,203,.14);
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(87,184,203,.16);
+    }
+
+    /* Primary action button → teal */
+    .dash-dark .btn-primary {
+      background: linear-gradient(180deg,#2f7d8d,#1f5662);
+      box-shadow: 0 6px 18px rgba(31,86,98,.4);
+    }
+    .dash-dark .btn-primary:hover {
+      background: linear-gradient(180deg,#378fa2,#276b78);
+    }
+
+    /* Alerts */
+    .dash-dark .alert-error {
+      background: rgba(255,90,90,.10);
+      color: #ffb4b4;
+      border-color: rgba(255,90,90,.30);
+    }
+
+    /* Section tab — beat the hardcoded blue inline styles with !important */
+    .dash-dark #tab-section .card { border: 1px solid rgba(87,184,203,.40) !important; }
+    .dash-dark #tab-section .card-header { background: rgba(87,184,203,.10) !important; }
+    .dash-dark #tab-section .card-header span { color: #bdeaf3 !important; }
+    .dash-dark #tab-section .step-badge { background: var(--blue) !important; }
+    .dash-dark #section-submit-btn {
+      background: linear-gradient(180deg,#2f7d8d,#1f5662) !important;
+      border-color: #2f7d8d !important;
+    }
+
+    /* ── VPS pack cards (in-page VPS panel) ─────────────────────────────── */
+    .pack-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+    .pack-card {
+      background: #fff; border: 1.5px solid var(--grey-200); border-radius: 16px;
+      padding: 22px 22px 18px; cursor: pointer; transition: all .22s ease;
+      text-align: left; font-family: inherit; display: flex; flex-direction: column;
+      gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,.04); width: 100%;
+    }
+    .pack-card:hover { border-color: var(--blue); transform: translateY(-3px); box-shadow: 0 8px 24px rgba(26,115,232,.18); }
+    .pack-emoji { font-size: 28px; line-height: 1; }
+    .pack-name  { font-size: 18px; font-weight: 800; color: var(--grey-800); letter-spacing: -.3px; }
+    .pack-meta  { font-size: 12px; color: var(--grey-600); margin-top: 4px; }
+    .pack-tariff-badges { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+    .pack-tariff { padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: .5px; background: var(--blue-light); color: var(--blue); }
+    .pack-tariff.vip  { background: #fff3d1; color: #8b6914; }
+    .pack-tariff.prem { background: #f3e8ff; color: #6b21a8; }
+    .pack-tariff.stan { background: #dbeafe; color: #1e40af; }
+    .pack-action { margin-top: 14px; padding: 9px 16px; background: var(--blue); color: #fff; border-radius: 999px; text-align: center; font-weight: 700; font-size: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; align-self: flex-start; }
+
+    /* dark variants */
+    .dash-dark .pack-card { background: rgba(255,255,255,.04) !important; border-color: rgba(255,255,255,.12) !important; box-shadow: 0 2px 10px rgba(0,0,0,.3) !important; }
+    .dash-dark .pack-card:hover { border-color: var(--blue) !important; box-shadow: 0 10px 26px rgba(31,86,98,.32) !important; }
+    .dash-dark .pack-name { color: #e6eef1; }
+    .dash-dark .pack-action { background: linear-gradient(180deg,#2f7d8d,#1f5662); }
+    .dash-dark .pack-tariff.vip  { background: rgba(184,138,16,.22); color: #ffd874; }
+    .dash-dark .pack-tariff.prem { background: rgba(123,63,170,.24); color: #d7b0ff; }
+    .dash-dark .pack-tariff.stan { background: rgba(40,80,200,.24); color: #a9c4ff; }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <div class="navbar-brand">
+      <img src="/static/juzosup.png" class="logo-sm" alt="JUZ40"/>
+      <span>JUZ40 Copilot</span>
+    </div>
+    <a href="/logout" class="btn btn-ghost">Шығу</a>
+  </nav>
+
+  <div class="dashboard-hero">
+    <!-- JUZ40 contour-trace watermark (same as the login page), centred behind the hero -->
+    <svg class="bg-watermark" viewBox="0 0 1100 420" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <text x="550" y="312" text-anchor="middle" class="wm-base">JUZ40</text>
+      <text x="550" y="312" text-anchor="middle" class="wm-trace">JUZ40</text>
+    </svg>
+    <div class="hero-layout">
+      <div class="hero-left">
+      <div class="page-header">
+        <h2>Отчет жасау</h2>
+        <p class="page-subtitle">{{ subject_name | default('Информатика') }} пәні бойынша куратор жұмысын бағалау</p>
+      </div>
+
+      <!-- Категория кнопкалары -->
+      <div class="category-tabs">
+        <button class="category-btn active" onclick="switchCategory('esep')" id="cat-esep">
+          🔢 Есеп пәндер
+        </button>
+        <button class="category-btn" onclick="switchCategory('auyzshy')" id="cat-auyzshy">
+          🗣 Ауызша пәндер
+        </button>
+        <button class="category-btn" onclick="switchCategory('vps')" id="cat-vps">
+          💎 VPS
+        </button>
+      </div>
+
+      <!-- Пән табтары (horizontal scroll) -->
+      <div class="subject-tabs" id="subject-tabs-strip">
+      <a href="/dashboard"
+         class="subject-tab s-info {% if active_subject|default('informatics') == 'informatics' %}active{% endif %}"
+         data-category="esep">
+        💻 Информатика
+      </a>
+      <a href="/math/dashboard"
+         class="subject-tab s-math {% if active_subject|default('informatics') == 'math' %}active{% endif %}"
+         data-category="esep">
+        📐 Математика
+      </a>
+      <a href="/geometry/dashboard"
+         class="subject-tab s-geom {% if active_subject|default('informatics') == 'geometry' %}active{% endif %}"
+         data-category="esep">
+        📏 Геометрия
+      </a>
+      <a href="/ms/dashboard"
+         class="subject-tab s-ms {% if active_subject|default('informatics') == 'ms' %}active{% endif %}"
+         data-category="esep">
+        🧮 Математикалық сауаттылық
+      </a>
+      <a href="/physics/dashboard"
+         class="subject-tab s-phys {% if active_subject|default('informatics') == 'physics' %}active{% endif %}"
+         data-category="esep">
+        ⚛️ Физика
+      </a>
+      <a href="/chemistry/dashboard"
+         class="subject-tab s-chem {% if active_subject|default('informatics') == 'chemistry' %}active{% endif %}"
+         data-category="esep">
+        🧪 Химия
+      </a>
+      <a href="/geography/dashboard"
+         class="subject-tab s-geo {% if active_subject|default('informatics') == 'geography' %}active{% endif %}"
+         data-category="auyzshy">
+        🌍 География
+      </a>
+      <a href="/kukyk/dashboard"
+         class="subject-tab s-law {% if active_subject|default('informatics') == 'kukyk' %}active{% endif %}"
+         data-category="auyzshy">
+        ⚖️ Құқық негіздері
+      </a>
+      <a href="/history/dashboard"
+         class="subject-tab s-kzhist {% if active_subject|default('informatics') == 'history' %}active{% endif %}"
+         data-category="auyzshy">
+        📚 Қазақстан тарихы
+      </a>
+      <a href="/world-history/dashboard"
+         class="subject-tab s-whist {% if active_subject|default('informatics') == 'world_history' %}active{% endif %}"
+         data-category="auyzshy">
+        🌐 Дүниежүзі тарихы
+      </a>
+      <a href="/biology/dashboard"
+         class="subject-tab s-bio {% if active_subject|default('informatics') == 'biology' %}active{% endif %}"
+         data-category="auyzshy">
+        🧬 Биология
+      </a>
+      <a href="/kazakh-language/dashboard"
+         class="subject-tab s-kzlang {% if active_subject|default('informatics') == 'kazakh-language' %}active{% endif %}"
+         data-category="auyzshy">
+        📖 Қазақ тілі
+      </a>
+      <a href="/kazakh-literature/dashboard"
+         class="subject-tab s-kzlit {% if active_subject|default('informatics') == 'kazakh_literature' %}active{% endif %}"
+         data-category="auyzshy">
+        ✍️ Қазақ әдебиеті
+      </a>
+      <a href="/russian-language/dashboard"
+         class="subject-tab s-rulang {% if active_subject|default('informatics') == 'russian_language' %}active{% endif %}"
+         data-category="auyzshy">
+        🇷🇺 Орыс тілі
+      </a>
+      <a href="/russian-literature/dashboard"
+         class="subject-tab s-rulit {% if active_subject|default('informatics') == 'russian_literature' %}active{% endif %}"
+         data-category="auyzshy">
+        📘 Орыс әдебиеті
+      </a>
+      <a href="/english/dashboard"
+         class="subject-tab s-en {% if active_subject|default('informatics') == 'english' %}active{% endif %}"
+         data-category="auyzshy">
+        🇬🇧 Ағылшын тілі
+      </a>
+    </div><!-- /subject-tabs -->
+      </div><!-- /hero-left -->
+      <div class="hero-right">
+        <img src="/static/hero-card.png" class="hero-mockup" alt=""/>
+      </div>
+    </div><!-- /hero-layout -->
+  </div><!-- /dashboard-hero -->
+
+  <div class="page-container">
+
+    {% if error %}
+    <div class="alert alert-error">
+      <span class="alert-icon">⚠</span> {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- ═══ ЕСЕП / АУЫЗША report tabs (hidden when the VPS category is on) ═══ -->
+    <div id="report-main">
+    <!-- ── TAB BAR ─────────────────────────────────────────────────────────── -->
+    <div class="tab-bar">
+      <button class="tab-btn {% if courses is not none %}active{% else %}active{% endif %}"
+              id="tab-weekly-btn" onclick="switchTab('weekly')">
+        📅 Апталық / Айлық отчет
+      </button>
+      <button class="tab-btn" id="tab-section-btn" onclick="switchTab('section')">
+        📊 Раздел бойынша жалпы отчет
+      </button>
+      <a class="tab-btn" href="/smart-monthly/" style="text-decoration:none;display:inline-flex;align-items:center">
+        🗂 СМАРТ айлық СТ есебі
+      </a>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         TAB 1 — АПТАЛЫҚ / АЙЛЫҚ ОТЧЕТ
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div class="tab-panel active" id="tab-weekly">
+
+      <!-- STEP 1 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="step-badge">1</span>
+          <span>Курс түрін және ағын айын таңдаңыз</span>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{{ subject_prefix | default('') }}/filter-courses" id="filter-form">
+
+            <div class="filter-grid">
+              <div class="form-group">
+                <label>Курс түрі</label>
+                <div class="pill-group">
+                  {% for ct in course_types %}
+                  <label class="pill {% if selected_type == ct %}active{% endif %}">
+                    <input type="radio" name="course_type" value="{{ ct }}"
+                      {% if selected_type == ct %}checked{% endif %} required/>
+                    {{ ct }}
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Ағын айы</label>
+                <div class="pill-group">
+                  {% for sm in stream_months %}
+                  <label class="pill {% if selected_month == sm %}active{% endif %}">
+                    <input type="radio" name="stream_month" value="{{ sm }}"
+                      {% if selected_month == sm %}checked{% endif %} required/>
+                    {{ sm }}
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">🔍 Курстарды табу</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      {% if courses is not none %}
+      <div class="card" id="step2-card">
+        <div class="card-header">
+          <span class="step-badge">2</span>
+          <span>
+            Курс таңдаңыз
+            {% if courses %}<span class="badge-count">{{ courses|length }}</span>{% endif %}
+          </span>
+        </div>
+        <div class="card-body">
+
+          {% if not courses %}
+          <div class="empty-state">
+            <div class="empty-icon">📭</div>
+            <p><strong>{{ selected_type }} {{ selected_month }}</strong> бойынша курс табылмады.</p>
+            <p class="text-muted">Басқа тип немесе айды таңдап көріңіз.</p>
+          </div>
+
+          {% else %}
+          <form method="post" action="{{ subject_prefix | default('') }}/report" id="report-form" onsubmit="return validateReportForm()">
+
+            <div class="form-group">
+              <label>Курсты таңдаңыз</label>
+              <div class="course-list" id="course-list">
+                {% for c in courses %}
+                <label class="course-item" id="course-item-{{ loop.index0 }}">
+                  <input
+                    type="radio"
+                    name="course_id"
+                    value="{{ c.id }}"
+                    data-name="{{ c.name }}"
+                    required
+                    onchange="onCourseSelect(this)"
+                  />
+                  <div class="course-info">
+                    <span class="course-name">{{ c.name }}</span>
+                    <span class="course-meta">{{ c.year }} / {{ c.month }}-ай</span>
+                    {% if c.active %}<span class="badge-active">Белсенді</span>{% endif %}
+                  </div>
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+
+            <input type="hidden" name="course_name" id="course_name" value="" />
+
+            <div class="form-group" style="margin-top: 24px;">
+              <label>Оқу айы</label>
+              <div class="pill-group" id="study-month-pills">
+                <span style="color:var(--grey-500);font-size:13px;">← Алдымен курсты таңдаңыз</span>
+              </div>
+            </div>
+
+            <!-- Апта таңдау. "Жалпы" — барлық 4 апта + айлық қорытынды
+                 (бұрынғыдай). 1..4 апта — тек сол аптаны өңдейді (отчёт
+                 ~4 есе жылдам жасалады). Бастапқыда жасырын — оқу айы
+                 таңдалған соң ғана көрінеді (revealWeekPills()-те). -->
+            <div class="form-group" id="week-section"
+                 style="margin-top: 24px; display:none; opacity:0; transform:translateY(-6px); transition: opacity .35s ease, transform .35s ease;">
+              <label>Апта</label>
+              <div class="pill-group" id="week-pills">
+                <label class="pill active">
+                  <input type="radio" name="week" value="all" checked
+                    onchange="onPillChange(this)"/> Жалпы
+                </label>
+                <label class="pill">
+                  <input type="radio" name="week" value="1"
+                    onchange="onPillChange(this)"/> 1-апта
+                </label>
+                <label class="pill">
+                  <input type="radio" name="week" value="2"
+                    onchange="onPillChange(this)"/> 2-апта
+                </label>
+                <label class="pill">
+                  <input type="radio" name="week" value="3"
+                    onchange="onPillChange(this)"/> 3-апта
+                </label>
+                <label class="pill">
+                  <input type="radio" name="week" value="4"
+                    onchange="onPillChange(this)"/> 4-апта
+                </label>
+              </div>
+              <div style="font-size:12px; color:var(--grey-600); margin-top:6px;">
+                <strong>Жалпы</strong> — 4 апта + айлық қорытынды. Бір апта таңдасаңыз — отчёт ~4 есе тез жасалады.
+              </div>
+            </div>
+
+            <div id="form-error" class="alert alert-error" style="display:none; margin-top:12px;">
+              <span class="alert-icon">⚠</span>
+              <span id="form-error-text"></span>
+            </div>
+
+            <div class="form-actions" style="margin-top: 20px;">
+              <button type="submit" class="btn btn-success" id="submit-btn">
+                📊 Отчет жасау
+              </button>
+              <span id="loading-hint" style="display:none; color: var(--grey-600); font-size:13px; margin-left:12px;">
+                ⏳ Жүктелуде… бұл 10–30 секунд алуы мүмкін
+              </span>
+            </div>
+          </form>
+          {% endif %}
+
+        </div>
+      </div>
+      {% endif %}
+
+    </div><!-- /tab-weekly -->
+
+
+    <!-- ══════════════════════════════════════════════════════════════════
+         TAB 2 — РАЗДЕЛ БОЙЫНША ЖАЛПЫ ОТЧЕТ
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div class="tab-panel" id="tab-section">
+      <div class="card" style="border: 2px solid #659BB9;">
+        <div class="card-header" style="background: #e8f0fe;">
+          <span class="step-badge" style="background:#659BB9;">★</span>
+          <span style="font-weight:700; color:#659BB9;">Раздел бойынша жалпы отчет</span>
+        </div>
+        <div class="card-body">
+          <form method="post" action="/section-report" id="section-form" onsubmit="return validateSectionForm()">
+
+            <div class="filter-grid">
+              <div class="form-group">
+                <label>Курс түрі</label>
+                <div class="pill-group" id="section-type-pills">
+                  {% for ct in course_types %}
+                  <label class="pill">
+                    <input type="radio" name="course_type" value="{{ ct }}"
+                      required onchange="onPillChange(this)"/>
+                    {{ ct }}
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Оқу айы</label>
+                <div class="pill-group" id="section-month-pills">
+                  {% for sm in study_months %}
+                  <label class="pill">
+                    <input type="radio" name="study_month" value="{{ sm }}"
+                      required onchange="onPillChange(this)"/>
+                    {{ sm }}
+                  </label>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+
+            <div id="section-form-error" class="alert alert-error" style="display:none; margin-top:12px;">
+              <span class="alert-icon">⚠</span>
+              <span id="section-form-error-text"></span>
+            </div>
+
+            <div class="form-actions">
+              <button type="submit" class="btn btn-success" id="section-submit-btn"
+                style="background:#659BB9; border-color:#659BB9;">
+                📊 Жалпы отчет жасау
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div><!-- /tab-section -->
+    </div><!-- /report-main -->
+
+    <!-- ═══════════════════════════════════════════════════════════════════
+         VPS PANEL — shown when the VPS category is selected (in-page, no
+         navigation). Mirrors the old /vps/dashboard flow: month → week → pack.
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="vps-panel" style="display:none;">
+      <div class="card">
+        <div class="card-header">
+          <span class="step-badge">1</span>
+          <span>Оқу айын таңдаңыз</span>
+        </div>
+        <div class="card-body">
+          <div class="pill-group" id="vps-month-pills">
+            {% for m in vps_months %}
+            <label class="pill {% if loop.first %}active{% endif %}">
+              <input type="radio" name="vps_month" value="{{ m }}"
+                     {% if loop.first %}checked{% endif %}
+                     onchange="onVpsMonthPick(this)"/>
+              {{ m }}-АЙ
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="vps-week-card"
+           style="display:none; opacity:0; transform:translateY(-6px); transition: opacity .35s ease, transform .35s ease;">
+        <div class="card-header">
+          <span class="step-badge">2</span>
+          <span>Апта таңдаңыз</span>
+        </div>
+        <div class="card-body">
+          <div class="pill-group" id="vps-week-pills">
+            <label class="pill active"><input type="radio" name="vps_week" value="all" checked onchange="onVpsWeekPick(this)"/> Жалпы</label>
+            <label class="pill"><input type="radio" name="vps_week" value="1" onchange="onVpsWeekPick(this)"/> 1-апта</label>
+            <label class="pill"><input type="radio" name="vps_week" value="2" onchange="onVpsWeekPick(this)"/> 2-апта</label>
+            <label class="pill"><input type="radio" name="vps_week" value="3" onchange="onVpsWeekPick(this)"/> 3-апта</label>
+            <label class="pill"><input type="radio" name="vps_week" value="4" onchange="onVpsWeekPick(this)"/> 4-апта</label>
+          </div>
+          <div style="font-size:12px; color:var(--grey-600); margin-top:6px;">
+            <strong>Жалпы</strong> — 4 апта + айлық қорытынды. Бір апта таңдасаңыз — отчёт ~4 есе тез жасалады.
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="vps-pack-card"
+           style="display:none; opacity:0; transform:translateY(-6px); transition: opacity .35s ease, transform .35s ease;">
+        <div class="card-header">
+          <span class="step-badge">3</span>
+          <span>Пакетті таңдаңыз</span>
+        </div>
+        <div class="card-body">
+          <p class="text-muted" style="margin-bottom: 12px;">
+            Пакетке бір рет басыңыз — барлық 3 тариф және 5 пән бойынша отчёт жасалады.
+          </p>
+          <div class="pack-grid">
+            {% for pack in vps_packs %}
+            <form method="post" action="/vps/report" style="margin: 0;" class="vps-pack-form" data-pack="{{ pack }}">
+              <input type="hidden" name="pack"  value="{{ pack }}"/>
+              <input type="hidden" name="month" value="" class="vps-hidden-month"/>
+              <input type="hidden" name="week"  value="all" class="vps-hidden-week"/>
+              <button type="submit" class="pack-card">
+                <span class="pack-emoji">🧩</span>
+                <span class="pack-name">{{ pack }}</span>
+                <span class="pack-meta vps-pack-meta">5 пән</span>
+                <span class="pack-tariff-badges">
+                  <span class="pack-tariff vip">👑 VIP</span>
+                  <span class="pack-tariff prem">💜 PREM</span>
+                  <span class="pack-tariff stan">💎 STAN</span>
+                </span>
+                <span class="pack-action">📊 Отчёт жасау →</span>
+              </button>
+            </form>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div><!-- /vps-panel -->
+
+  </div><!-- /page-container -->
+
+  <script>
+    // ── Subject tabs: click animation (clicked pops, others shrink) ───────────
+    (function() {
+      document.querySelectorAll('.subject-tab').forEach(function(tab) {
+        tab.addEventListener('click', function(e) {
+          const href = this.getAttribute('href');
+          if (!href || this.classList.contains('active')) return;
+          e.preventDefault();
+          const clicked = this;
+          document.querySelectorAll('.subject-tab').forEach(function(t) {
+            if (t === clicked) {
+              t.style.transition = 'transform .22s cubic-bezier(.34,1.56,.64,1)';
+              t.style.transform  = 'scale(1.15) translateY(-4px)';
+              t.style.zIndex     = '10';
+            } else {
+              t.style.transition = 'opacity .22s ease, transform .22s ease';
+              t.style.opacity    = '0.2';
+              t.style.transform  = 'scale(0.88)';
+            }
+          });
+          setTimeout(function() { window.location.href = href; }, 240);
+        });
+      });
+    })();
+
+    // ── Категория switcher ─────────────────────────────────────────────────────
+    // All three categories (esep / auyzshy / vps) now live on this one page —
+    // no navigation. esep/auyzshy show the subject report tabs; vps swaps in the
+    // pack-selection panel. Switching is instant and the choice persists across
+    // reloads, so coming back to a category never silently resets to esep.
+    function switchCategory(cat) {
+      document.querySelectorAll('.category-btn').forEach(b => b.classList.remove('active'));
+      const btn = document.getElementById('cat-' + cat);
+      if (btn) btn.classList.add('active');
+
+      const isVps        = (cat === 'vps');
+      const reportMain   = document.getElementById('report-main');
+      const vpsPanel     = document.getElementById('vps-panel');
+      const subjectTabs  = document.getElementById('subject-tabs-strip');
+
+      if (reportMain)  reportMain.style.display  = isVps ? 'none' : '';
+      if (vpsPanel)    vpsPanel.style.display     = isVps ? ''     : 'none';
+      // VPS is pack-based — there's no per-subject pick, so hide the subject pills.
+      // .subject-tabs has `display:flex !important` in style.css, so a plain
+      // inline display:none loses — set it !important, and remove to restore.
+      if (subjectTabs) {
+        if (isVps) subjectTabs.style.setProperty('display', 'none', 'important');
+        else       subjectTabs.style.removeProperty('display');
+      }
+
+      if (!isVps) {
+        document.querySelectorAll('.subject-tab').forEach(tab => {
+          tab.classList.toggle('hidden', tab.dataset.category !== cat);
+        });
+      } else {
+        initVps();
+      }
+
+      sessionStorage.setItem('activeCategory', cat);
+    }
+
+    (function() {
+      // Restore the last chosen category (incl. vps). savedCat first so an
+      // explicit choice wins over the always-esep "active subject" default.
+      const activeTab = document.querySelector('.subject-tab.active');
+      const activeCat = activeTab ? activeTab.dataset.category : null;
+      const savedCat = sessionStorage.getItem('activeCategory');
+      switchCategory(savedCat || activeCat || 'esep');
+    })();
+
+    // ── VPS in-page flow (month → week → pack) ──────────────────────────────────
+    // `var` (not `let`) so these are hoisted: the category-init IIFE above can
+    // call initVps() before this line is reached without hitting a TDZ error.
+    var vpsSelectedMonth = '';
+    var vpsSelectedWeek  = 'all';
+    var vpsInited = false;
+
+    function vpsPillReveal(el) {
+      if (!el || el.dataset.revealed === '1') return;
+      el.style.display = '';
+      void el.offsetWidth;            // flush layout so the transition runs
+      el.style.opacity   = '1';
+      el.style.transform = 'translateY(0)';
+      el.dataset.revealed = '1';
+    }
+    function onVpsPillChange(radio) {
+      const group = radio.closest('.pill-group');
+      group.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      radio.closest('.pill').classList.add('active');
+    }
+    function onVpsMonthPick(radio) {
+      onVpsPillChange(radio);
+      vpsSelectedMonth = radio.value;
+      vpsPillReveal(document.getElementById('vps-week-card'));
+      vpsPillReveal(document.getElementById('vps-pack-card'));
+      refreshPackForms();
+    }
+    function onVpsWeekPick(radio) {
+      onVpsPillChange(radio);
+      vpsSelectedWeek = radio.value;
+      refreshPackForms();
+    }
+    function refreshPackForms() {
+      document.querySelectorAll('.vps-pack-form').forEach(form => {
+        form.querySelector('.vps-hidden-month').value = vpsSelectedMonth || '';
+        form.querySelector('.vps-hidden-week').value  = vpsSelectedWeek;
+      });
+      const weekLabel  = vpsSelectedWeek === 'all' ? '' : ` · ${vpsSelectedWeek}-апта`;
+      const monthLabel = vpsSelectedMonth ? ` · ${vpsSelectedMonth}-ай` : '';
+      document.querySelectorAll('.vps-pack-meta').forEach(el => {
+        el.textContent = `5 пән${monthLabel}${weekLabel}`;
+      });
+    }
+    // Runs the first time VPS is opened: pick up the pre-checked month and
+    // reveal the week + pack steps so the flow looks complete immediately.
+    function initVps() {
+      if (vpsInited) return;
+      vpsInited = true;
+      const checked = document.querySelector('#vps-month-pills input[name="vps_month"]:checked');
+      vpsSelectedMonth = checked ? checked.value : '';
+      if (vpsSelectedMonth) {
+        vpsPillReveal(document.getElementById('vps-week-card'));
+        vpsPillReveal(document.getElementById('vps-pack-card'));
+      }
+      refreshPackForms();
+    }
+
+    // ── Tab switching ──────────────────────────────────────────────────────────
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('tab-' + tab).classList.add('active');
+
+      document.querySelectorAll('.tab-bar .tab-btn').forEach(b => {
+        b.classList.remove('active', 'active-blue');
+      });
+      if (tab === 'weekly') {
+        document.getElementById('tab-weekly-btn').classList.add('active');
+      } else {
+        document.getElementById('tab-section-btn').classList.add('active-blue');
+      }
+      sessionStorage.setItem('activeTab', tab);
+    }
+
+    (function() {
+      const saved = sessionStorage.getItem('activeTab');
+      {% if courses is not none %}
+      switchTab('weekly');
+      {% else %}
+      if (saved === 'section') switchTab('section');
+      {% endif %}
+    })();
+
+    // ── Pill toggle ────────────────────────────────────────────────────────────
+    function onPillChange(radio) {
+      const group = radio.closest('.pill-group');
+      group.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+      radio.closest('.pill').classList.add('active');
+    }
+
+    document.querySelectorAll('.pill-group input[type=radio]:checked').forEach(r => {
+      r.closest('.pill').classList.add('active');
+    });
+
+    document.querySelectorAll('#filter-form .pill input[type=radio]').forEach(radio => {
+      radio.addEventListener('change', () => onPillChange(radio));
+    });
+
+    // ── Course select → fill hidden + load months ──────────────────────────────
+    function onCourseSelect(radio) {
+      document.getElementById('course_name').value = radio.dataset.name || '';
+      document.querySelectorAll('.course-item').forEach(item => item.classList.remove('selected'));
+      radio.closest('.course-item').classList.add('selected');
+      loadCourseMonths(radio.value);
+    }
+
+    // Reveals the "Апта" pill row with a brief fade-in. Called when the
+    // user picks a study month (we don't want to show the week picker
+    // before they've made the upstream choice — it would just look noisy).
+    function revealWeekPills() {
+      const sec = document.getElementById('week-section');
+      if (!sec || sec.dataset.revealed === '1') return;
+      sec.style.display = '';
+      // Force a layout flush so the opacity/transform transition actually
+      // runs instead of jumping to the end state instantly.
+      void sec.offsetWidth;
+      sec.style.opacity   = '1';
+      sec.style.transform = 'translateY(0)';
+      sec.dataset.revealed = '1';
+    }
+
+    function onMonthPick(radio) {
+      onPillChange(radio);
+      revealWeekPills();
+    }
+
+    function loadCourseMonths(courseId) {
+      const container = document.getElementById('study-month-pills');
+      container.innerHTML = '<span style="color:var(--grey-500);font-size:13px;">⏳ Жүктелуде…</span>';
+
+      // Switching courses → user must re-pick a month, so re-hide the week
+      // section until they do.
+      const sec = document.getElementById('week-section');
+      if (sec) {
+        sec.style.display   = 'none';
+        sec.style.opacity   = '0';
+        sec.style.transform = 'translateY(-6px)';
+        sec.dataset.revealed = '';
+      }
+
+      fetch('{{ subject_prefix | default("") }}/course-months?course_id=' + courseId)
+        .then(r => r.json())
+        .then(data => {
+          const months = data.months || [1,2,3,4,5];
+          container.innerHTML = '';
+          // Сервер не смог получить реальные месяцы курса и вернул общий
+          // список 1..5 — честно помечаем его как предположение.
+          container.title = data.fallback
+            ? 'Айлар тізімін нақтылау мүмкін болмады — стандартты тізім көрсетілді'
+            : '';
+          months.forEach(m => {
+            const val = m + '-ай';
+            const label = document.createElement('label');
+            label.className = 'pill';
+            label.innerHTML = `<input type="radio" name="study_month" value="${val}" required onchange="onMonthPick(this)"/> ${val.toUpperCase()}`;
+            container.appendChild(label);
+          });
+        })
+        .catch(() => {
+          container.innerHTML = '';
+          [1,2,3,4,5].forEach(m => {
+            const val = m + '-ай';
+            const label = document.createElement('label');
+            label.className = 'pill';
+            label.innerHTML = `<input type="radio" name="study_month" value="${val}" required onchange="onMonthPick(this)"/> ${val.toUpperCase()}`;
+            container.appendChild(label);
+          });
+        });
+    }
+
+    const alreadyChecked = document.querySelector('input[name="course_id"]:checked');
+    if (alreadyChecked) {
+      document.getElementById('course_name').value = alreadyChecked.dataset.name || '';
+      alreadyChecked.closest('.course-item').classList.add('selected');
+    }
+
+    // ── Form validation ────────────────────────────────────────────────────────
+    function validateReportForm() {
+      const courseId   = document.querySelector('input[name="course_id"]:checked');
+      const studyMonth = document.querySelector('#report-form input[name="study_month"]:checked');
+      const errDiv     = document.getElementById('form-error');
+      const errText    = document.getElementById('form-error-text');
+
+      if (!courseId) {
+        errText.textContent = 'Курсты таңдаңыз!';
+        errDiv.style.display = 'flex'; return false;
+      }
+      if (!document.getElementById('course_name').value.trim()) {
+        document.getElementById('course_name').value = courseId.dataset.name || '';
+      }
+      if (!studyMonth) {
+        errText.textContent = 'Оқу айын таңдаңыз (1-ай, 2-ай…)!';
+        errDiv.style.display = 'flex'; return false;
+      }
+      errDiv.style.display = 'none';
+      document.getElementById('submit-btn').disabled = true;
+      document.getElementById('submit-btn').textContent = '⏳ Жүктелуде…';
+      document.getElementById('loading-hint').style.display = 'inline';
+      return true;
+    }
+
+    function validateSectionForm() {
+      const ct  = document.querySelector('#section-form input[name="course_type"]:checked');
+      const sm  = document.querySelector('#section-form input[name="study_month"]:checked');
+      const err = document.getElementById('section-form-error');
+      const txt = document.getElementById('section-form-error-text');
+      if (!ct) { txt.textContent = 'Курс түрін таңдаңыз!'; err.style.display='flex'; return false; }
+      if (!sm) { txt.textContent = 'Оқу айын таңдаңыз!'; err.style.display='flex'; return false; }
+      err.style.display = 'none';
+      document.getElementById('section-submit-btn').disabled = true;
+      document.getElementById('section-submit-btn').textContent = '⏳ Жүктелуде…';
+      return true;
+    }
+
+    const step2 = document.getElementById('step2-card');
+    if (step2) {
+      setTimeout(() => step2.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    }
+  </script>
+</body>
+</html>

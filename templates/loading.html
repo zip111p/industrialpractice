@@ -1,0 +1,1549 @@
+<!DOCTYPE html>
+<html lang="kk">
+{# Single loading template — used by /report, /section-report and /vps endpoints.
+
+   Required Jinja context:
+     title              str    — page title (used in <title>)
+     subtitle_html      str    — small text in the bottom-left strip
+     unit               str    — short label for the count stat ("Топ" or "Ағын")
+     start_url          str    — POST endpoint to kick off the job
+     progress_url_base  str    — GET base (we append /<job_id> on the client)
+     result_url         str    — where to redirect on status == "done"
+     hidden_fields      dict   — form fields to POST to start_url
+     stages             list   — [{ "p": int, "icon": str, "title": str }, …]
+
+   Layout (matches the brand mockup):
+     ┌────────────────────────────────────────────────┐
+     │ ● ТОПТАР ЖҮКТЕЛУДЕ                             │  top strip
+     ├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤  dashed
+     │                                                │
+     │  JUZ40            ПРОЦЕСС               1 / 5  │
+     │  ONLINE — EDU     01 Топтар ─────────         │  middle
+     │                   └02 Сабақтар ───────         │
+     │                     └03 Орташа ─────           │
+     │                       └04 Кесте ────           │
+     │                         └05 Қорытынды─         │
+     │                                                │
+     ├ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┤  dashed
+     │ Subject • 5-ай ┊ 0 / 2 топ        ┊      0 %   │  bottom
+     │ «quote»        ┊ ӨҢДЕЛУ БАРЫСЫ     ┊            │  3 cols
+     └────────────────────────────────────────────────┘
+#}
+<head>
+  <meta charset="UTF-8"/>
+  <link rel="icon" href="/static/new-favicon.ico?v=2" type="image/png"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>JUZ40 — {{ title }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Brand palette: Ivory Cream + Vintage Denim (matches style.css). */
+      --bg:         #FFFCEF;
+      --bg-soft:    #FBFAF3;
+      --text:       #213B47;
+      --text-dim: rgba(33,59,71,.84);
+      --text-mute: rgba(33,59,71,.66);
+      --accent:     #4F9FC0;
+      --accent-soft:rgba(79,159,192,.34);
+      --accent-dim: rgba(79,159,192,.12);
+      --divider: rgba(33,59,71,.26);
+      --error:      #C0504A;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* Page transition — top-down "scanner" reveal on load (see style.css) */
+    @media (prefers-reduced-motion: no-preference) {
+      body { animation: scanReveal .62s cubic-bezier(.4,0,.15,1) both; }
+      @keyframes scanReveal {
+        from { clip-path: inset(0 0 100% 0); filter: drop-shadow(0 2px 1px rgba(195,242,252,1)) drop-shadow(0 5px 22px rgba(120,210,228,.95)); }
+        90%  { filter: drop-shadow(0 2px 1px rgba(195,242,252,1)) drop-shadow(0 5px 22px rgba(120,210,228,.95)); }
+        to   { clip-path: inset(0 0 0 0); filter: drop-shadow(0 0 0 rgba(120,210,228,0)); }
+      }
+    }
+
+    html, body {
+      height: 100%;
+      /* Same cream base as the login page (index.html). */
+      background:
+        radial-gradient(circle at 18% 18%, rgba(101,155,185,0.055), transparent 24%),
+        radial-gradient(circle at 78% 72%, rgba(101,155,185,0.045), transparent 34%),
+        #FFFCEF;
+      color: var(--text);
+      font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+    }
+
+    /* ── Background layers — mirror the login page ──────────────────── */
+    /* Framed grid (inset rounded border + faint grid lines). */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 28px 38px;
+      border-radius: 28px;
+      border: 1px solid rgba(33,59,71,0.035);
+      background:
+        linear-gradient(90deg, rgba(33,59,71,0.012) 1px, transparent 1px),
+        linear-gradient(rgba(33,59,71,0.010) 1px, transparent 1px);
+      background-size: 110px 110px;
+      pointer-events: none;
+      z-index: 0;
+    }
+    /* Vignette — darkens the edges so the centre reads first. */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 28px 38px;
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at center, transparent 0%, rgba(33,59,71,0.035) 92%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .particles {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      opacity: 0;
+      animation: particleFade 1.6s ease .2s forwards;
+    }
+
+
+    /* ── Premium ambient layer: slow light, soft glass sweep, depth ───── */
+    .ambient-light {
+      position: fixed;
+      inset: -24%;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 18% 22%, rgba(79,159,192,.16), transparent 28%),
+        radial-gradient(circle at 82% 68%, rgba(120,210,228,.10), transparent 32%);
+      mix-blend-mode: multiply;
+      opacity: .55;
+      transform: translate3d(0,0,0);
+      animation: ambientMove 54s ease-in-out infinite;
+      will-change: transform, opacity;
+    }
+    @keyframes ambientMove {
+      0%, 100% { transform: translate3d(-3%, -2%, 0) scale(1); opacity: .42; }
+      35%      { transform: translate3d(4%, 1%, 0) scale(1.08); opacity: .62; }
+      70%      { transform: translate3d(1%, 5%, 0) scale(.98); opacity: .50; }
+    }
+
+    .screen-wave {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background: linear-gradient(100deg,
+        transparent 0%,
+        transparent 42%,
+        rgba(195,242,252,.16) 49%,
+        rgba(79,159,192,.12) 51%,
+        transparent 58%,
+        transparent 100%);
+      background-size: 240% 100%;
+      background-position: 140% 0;
+      mix-blend-mode: screen;
+      opacity: 0;
+      animation: screenWave 13s ease-in-out 2.4s infinite;
+    }
+    @keyframes screenWave {
+      0%, 74%   { opacity: 0; background-position: 140% 0; }
+      80%       { opacity: .8; }
+      92%       { opacity: .55; background-position: -60% 0; }
+      100%      { opacity: 0; background-position: -60% 0; }
+    }
+
+    @keyframes particleFade { to { opacity: 1; } }
+
+    .orbs {
+      position: fixed; inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(34px);
+      opacity: .14;
+      opacity: 0;
+      animation: orbDrift 22s ease-in-out infinite;
+    }
+    .orb.o1 {
+      width: 480px; height: 480px;
+      top: -100px; left: -120px;
+      background: radial-gradient(circle, rgba(87,184,203,.10), transparent 70%);
+    }
+    .orb.o2 {
+      width: 380px; height: 380px;
+      bottom: -80px; right: -100px;
+      background: radial-gradient(circle, rgba(61,159,178,.08), transparent 70%);
+      animation-delay: -7s;
+      animation-duration: 26s;
+    }
+    .orb.o3 {
+      width: 320px; height: 320px;
+      top: 40%; right: 22%;
+      background: radial-gradient(circle, rgba(87,184,203,.07), transparent 70%);
+      animation-delay: -14s;
+      animation-duration: 30s;
+    }
+    @keyframes orbDrift {
+      0%, 100% { transform: translate(0, 0)        scale(1);   opacity: .24; }
+      33%      { transform: translate(80px, -60px) scale(1.12); opacity: .42; }
+      66%      { transform: translate(-50px, 80px) scale(.92); opacity: .18; }
+    }
+
+    /* ── JUZ40 contour-trace watermark ──────────────────────────────────
+       Big faint "JUZ40" in the background whose letter outlines are traced
+       by a travelling light. Anchored to the RIGHT and bled off the edge so
+       it doesn't sit behind the real wordmark on the left, and kept faint. */
+    .bg-watermark {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      user-select: none;
+      overflow: hidden;
+    }
+
+    /* Base artwork — the dashed-parallelogram figure. `multiply` blends the
+       PNG's light background into the cream page so only the lines remain
+       (no visible rectangle). Gentle breathing keeps it alive at rest. */
+    .bg-shapes {
+      position: absolute;
+      inset: 0;
+      background: url('/static/bg-shapes.png') center / cover no-repeat;
+      mix-blend-mode: multiply;
+      opacity: .85;
+      animation: shapesBreathe 7s ease-in-out infinite, shapesSlowDrift 46s ease-in-out infinite;
+    }
+    @keyframes shapesBreathe {
+      0%, 100% { opacity: .72; }
+      50%      { opacity: 1; }
+    }
+    @keyframes shapesSlowDrift {
+      0%, 100% { transform: translate3d(0,0,0) rotate(-.45deg) scale(1.01); }
+      50%      { transform: translate3d(1.2%, -.8%, 0) rotate(.45deg) scale(1.025); }
+    }
+
+    /* Sweeping glint — a diagonal cyan-white band that travels across the
+       figure. `screen` lifts whatever's underneath, so the dashed lines
+       light up as the band passes over them, then settle back. */
+    .bg-glint {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(115deg,
+        transparent 42%,
+        rgba(120,210,228,.35) 48%,
+        rgba(170,230,245,.55) 50%,
+        rgba(120,210,228,.35) 52%,
+        transparent 58%);
+      background-size: 280% 280%;
+      background-position: 140% 140%;
+      mix-blend-mode: screen;
+      animation: glintSweep 5.5s ease-in-out infinite;
+    }
+    @keyframes glintSweep {
+      0%, 8%   { background-position: 140% 140%; }
+      92%, 100%{ background-position: -40% -40%; }
+    }
+
+    /* ── Main stage layout ──────────────────────────────────────────── */
+    .stage {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
+      display: grid;
+      /* 5 explicit rows — one per child. Without listing all five the
+         implicit grid would push the 1fr onto the first divider (since
+         it's the second child), collapsing the middle strip to hug the
+         logo's height and breaking `align-self: start` on the timeline. */
+      grid-template-rows: auto auto 1fr auto auto;
+    }
+
+    /* ── Top strip ──────────────────────────────────────────────────── */
+    .strip-top {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 24px clamp(20px, 4vw, 60px);
+      font-size: 12px;
+      letter-spacing: .3em;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--accent);
+      opacity: 0;
+      animation: fadeUp .7s ease .25s forwards;
+    }
+    .dot {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 0 var(--accent-soft);
+      animation: dotPulse 1.6s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes dotPulse {
+      0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0   rgba(87,184,203,.55), 0 0 12px rgba(87,184,203,.65); }
+      50%      { transform: scale(.85);  box-shadow: 0 0 0 10px rgba(87,184,203,0),    0 0 18px rgba(87,184,203,.9);  }
+    }
+
+    /* Status text swaps with a soft blur+slide instead of a hard cut, so
+       stage→stage transitions read as a smooth handoff. JS toggles
+       .is-swapping for one frame while it replaces the text. */
+    #top-status {
+      display: inline-block;
+      transition: opacity .22s ease, filter .22s ease, transform .22s ease;
+    }
+    #top-status.is-swapping {
+      opacity: 0;
+      filter: blur(5px);
+      transform: translateY(-5px);
+    }
+
+    /* Dashed horizontal divider — drawn between rows */
+    .div-h {
+      height: 1px;
+      width: 100%;
+      background-image: linear-gradient(90deg,
+        var(--divider) 0, var(--divider) 8px,
+        transparent 8px, transparent 18px);
+      background-size: 18px 1px;
+      transform-origin: left center;
+      animation: divDraw 1.2s cubic-bezier(.4, 0, .2, 1) .3s both;
+    }
+    @keyframes divDraw {
+      from { transform: scaleX(0); }
+      to   { transform: scaleX(1); }
+    }
+
+    /* ── Middle strip — logo + timeline ─────────────────────────────── */
+    .strip-middle {
+      display: grid;
+      /* Both columns roughly equal so the visual weight of the logo
+         (left) and the staircase (right) is balanced around the centre
+         of the screen. */
+      grid-template-columns: 1fr 1fr;
+      align-items: center;
+      gap: clamp(12px, 2vw, 32px);
+      padding: clamp(30px, 6vh, 80px) clamp(20px, 4vw, 60px);
+      min-height: 0;
+    }
+    @media (max-width: 900px) {
+      .strip-middle { grid-template-columns: 1fr; }
+    }
+
+    .logo-area {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .wordmark-block {
+      display: inline-block;
+      position: relative;
+      z-index: 0;            /* own stacking context so the glow halo sits behind */
+      opacity: 0;
+      transform: translateY(24px);
+      animation: logoRise 1s cubic-bezier(.2, .8, .2, 1) .25s forwards;
+    }
+    @keyframes logoRise { to { opacity: 1; transform: translateY(0); } }
+
+    /* Progress-driven glow halo behind the wordmark. JS sets --logo-glow
+       (0→1) on #stage as the percent climbs, so the logo's aura brightens
+       and swells in step with the real loading progress. */
+    .wordmark-block::after {
+      content: '';
+      position: absolute;
+      inset: -34% -18%;
+      z-index: -1;
+      border-radius: 50%;
+      background: radial-gradient(ellipse at center,
+        rgba(79,159,192,.50), rgba(120,210,228,.22) 45%, transparent 72%);
+      filter: blur(34px);
+      opacity: calc(var(--logo-glow, 0) * .92);
+      transform: scale(calc(.8 + var(--logo-glow, 0) * .35));
+      transition: opacity .7s ease, transform .7s ease;
+      pointer-events: none;
+    }
+
+    .wordmark-breath {
+      display: block;
+      animation: logoBreathe 4.5s ease-in-out infinite 1.6s, logoMicroTilt 15s ease-in-out infinite 2s;
+    }
+    @keyframes logoBreathe {
+      0%, 100% { opacity: 1;  transform: translateY(0); }
+      50%      { opacity: .9; transform: translateY(-3px); }
+    }
+    @keyframes logoMicroTilt {
+      0%, 88%, 100% { rotate: 0deg; }
+      92% { rotate: .35deg; }
+      96% { rotate: -.22deg; }
+    }
+
+    .wordmark-logo {
+      display: block;
+      width: clamp(240px, 32vw, 480px);
+      height: auto;
+      /* juzosup.png is white-on-transparent; tint it to the denim brand so it
+         reads on the cream background. */
+      filter:
+        brightness(0) saturate(100%) invert(55%) sepia(16%) saturate(900%)
+        hue-rotate(165deg) brightness(90%)
+        drop-shadow(0 0 16px rgba(101,155,185,0.22));
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+    /* Shimmer sweep over the logo — a soft cyan-white band glints across the
+       wordmark once per cycle, then rests. Sits over the logo via screen blend. */
+    .wordmark-block::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        100deg,
+        transparent 32%,
+        rgba(195, 242, 252, 0.55) 50%,
+        transparent 68%
+      );
+      background-size: 250% 100%;
+      background-position: 200% 0;
+      mix-blend-mode: screen;
+      pointer-events: none;
+      opacity: 0;
+      animation: logoShimmer 8s ease-in-out 4s infinite;
+    }
+    @keyframes logoShimmer {
+      0%   { opacity: 0; background-position: 180% 0; }
+      6%   { opacity: 1; }
+      18%  { opacity: 1; }
+      24%  { opacity: 0; background-position: -80% 0; }
+      100% { opacity: 0; background-position: -80% 0; }
+    }
+
+
+    /* ── PROCESS TIMELINE — PREMIUM VERTICAL VERSION ───────────────── */
+    /* Card frame removed — the timeline now reads as an open block to match
+       the open wordmark on the left (no glass panel on either side). */
+    .timeline {
+      --gray-line: rgba(33,59,71,.24);
+      --gray: rgba(33,59,71,.62);
+      --yellow: #4F9FC0;
+
+      position: relative;
+      width: min(520px, 100%);
+      height: auto;
+
+      align-self: center;
+      justify-self: center;
+
+      font-family: 'Montserrat', Arial, sans-serif;
+      color: var(--text);
+
+      opacity: 0;
+      animation: timelineIn .8s ease .8s forwards;
+
+      padding: 0 4px;
+    }
+
+    @keyframes timelineIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .ts.is-active .ts-num {
+    font-size: 20px;
+    }
+
+    .ts.is-active .ts-title {
+    font-size: 19px;
+    font-weight: 900;
+    }
+
+
+
+    /* Premium sweep across the whole timeline block */
+    .timeline::after {
+      content: "";
+      position: absolute;
+      inset: -18px -26px;
+      pointer-events: none;
+      background: linear-gradient(115deg,
+        transparent 35%,
+        rgba(195,242,252,.0) 43%,
+        rgba(195,242,252,.34) 49%,
+        rgba(79,159,192,.20) 52%,
+        transparent 62%);
+      background-size: 260% 100%;
+      background-position: 150% 0;
+      mix-blend-mode: screen;
+      opacity: 0;
+      animation: timelineSweep 4.8s ease-in-out 1.8s infinite;
+    }
+    @keyframes timelineSweep {
+      0%, 58% { opacity: 0; background-position: 150% 0; }
+      66%     { opacity: .95; }
+      84%     { opacity: .45; background-position: -70% 0; }
+      100%    { opacity: 0; background-position: -70% 0; }
+    }
+
+    /* HEADER */
+    .timeline-head {
+      width: 100%;
+      height: 46px;
+
+      border-bottom: 2px solid var(--gray-line);
+
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .timeline-head > span:first-child {
+      font-size: 26px;
+      letter-spacing: 9px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .timeline-count {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--gray);
+    }
+
+    .timeline-count .cur { color: var(--yellow); }
+
+    /* LIST */
+    .timeline-stages {
+      list-style: none;
+      margin: 30px 0 0 0;
+      padding: 0;
+      width: 100%;
+    }
+
+    /* ITEM */
+    .ts {
+      position: relative;
+      height: 56px;
+      margin-bottom: 10px;
+      padding-left: 38px;
+    }
+
+    /* DOT */
+    .ts::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 2px;
+
+      width: 12px;
+      height: 12px;
+
+      border-radius: 50%;
+      border: 2px solid var(--gray-line);
+      background: transparent;
+
+      transition: all .35s ease;
+    }
+
+    /* SMALL VERTICAL CONNECTOR */
+    .ts::after {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 20px;
+
+      width: 2px;
+      height: 44px;
+
+      background: var(--gray-line);
+    }
+
+    /* Last stage doesn't reserve a full row, so nothing dangles after "05". */
+    .ts:last-child {
+      height: 34px;
+      margin-bottom: 0;
+    }
+    .ts:last-child::after { display: none; }
+
+    /* NUMBER */
+    .ts-num {
+      position: absolute;
+      left: 38px;
+      top: -4px;
+
+      font-size: 18px;
+      font-weight: 900;
+      color: var(--gray);
+    }
+
+    /* TITLE */
+    .ts-title {
+      position: absolute;
+      left: 92px;
+      top: -4px;
+
+      font-size: 18px;
+      font-weight: 800;
+      white-space: nowrap;
+      color: var(--gray);
+    }
+
+    /* LINE */
+    .ts-line {
+      position: absolute;
+      left: 92px;
+      right: 0;
+      top: 30px;
+
+      height: 2px;
+
+      background: var(--gray-line);
+    }
+
+    /* ACTIVE */
+    .ts.is-active::before {
+      background: var(--yellow);
+      border-color: var(--yellow);
+      box-shadow: 0 0 14px rgba(79,159,192,.55);
+    }
+    .ts.is-active::after { background: var(--yellow); }
+    .ts.is-active .ts-num,
+    .ts.is-active .ts-title { color: var(--text); }
+    .ts.is-active .ts-line {
+  background: linear-gradient(
+    90deg,
+    rgba(79,159,192,.25),
+    rgba(79,159,192,1),
+    rgba(79,159,192,.25)
+  );
+  background-size: 220% 100%;
+  animation: activeLineMove 1.8s linear infinite;
+  box-shadow: 0 0 12px rgba(79,159,192,.42);
+}
+
+@keyframes activeLineMove {
+  from { background-position: 220% 0; }
+  to { background-position: -220% 0; }
+}
+
+
+
+    .ts.is-active::before {
+      animation: activeDotBreath 1.65s ease-in-out infinite;
+    }
+    @keyframes activeDotBreath {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 14px rgba(79,159,192,.55), 0 0 0 0 rgba(79,159,192,.25); }
+      50%      { transform: scale(.92); box-shadow: 0 0 24px rgba(79,159,192,.86), 0 0 0 12px rgba(79,159,192,0); }
+    }
+
+    .ts.is-pulsing::before {
+      animation: activeStageRipple .72s cubic-bezier(.2, .9, .2, 1) both;
+    }
+    @keyframes activeStageRipple {
+      0%   { box-shadow: 0 0 0 0 rgba(79,159,192,.55), 0 0 12px rgba(79,159,192,.7); transform: scale(.82); }
+      55%  { box-shadow: 0 0 0 20px rgba(79,159,192,0), 0 0 28px rgba(79,159,192,.85); transform: scale(1.08); }
+      100% { box-shadow: 0 0 0 0 rgba(79,159,192,0), 0 0 14px rgba(79,159,192,.55); transform: scale(1); }
+    }
+
+    .ts.is-active .ts-title,
+    .ts.is-active .ts-num {
+      text-shadow: 0 0 14px rgba(79,159,192,.18);
+    }
+
+    /* DONE */
+    .ts.is-done::before {
+      background: rgba(79,159,192,.60);
+      border-color: rgba(79,159,192,.60);
+    }
+    /* Connector fills with light from the top (the just-completed dot) down
+       to the next stage — a "liquid rising" wipe each time a step finishes.
+       The colored fill layer animates its height 0→100% over the gray base. */
+    .ts.is-done::after  {
+      background:
+        linear-gradient(to bottom, rgba(79,159,192,.85), rgba(79,159,192,.45)) top / 100% 100% no-repeat,
+        var(--gray-line);
+      animation: connectorFill .55s cubic-bezier(.4,0,.2,1) both;
+    }
+    @keyframes connectorFill {
+      from { background-size: 100% 0%, 100% 100%; }
+      to   { background-size: 100% 100%, 100% 100%; }
+    }
+    .ts.is-done .ts-line { background: rgba(79,159,192,.38); }
+    .ts.is-pending { opacity: .74; }
+    .ts.is-active { opacity: 1; }
+    .ts.is-done { opacity: .74; }
+
+    /* CHASING */
+    .ts.is-chasing:not(.is-active):not(.is-done)::before {
+      border-color: var(--yellow);
+      box-shadow: 0 0 8px rgba(79,159,192,.32);
+    }
+    .ts.is-chasing:not(.is-active):not(.is-done) .ts-line {
+      background: rgba(79,159,192,.28);
+    }
+
+    /* SMOOTH */
+    .ts,
+    .ts::before,
+    .ts::after,
+    .ts-line,
+    .ts-title,
+    .ts-num {
+      transition: all .35s ease;
+    }
+
+    /* ── Bottom strip — 3 columns ───────────────────────────────────── */
+    .strip-bottom {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      /* Centred so all three columns share the same vertical centreline
+         — the subtitle/quote, counter and percent visually read as one
+         horizontal lockup instead of three boxes of different heights. */
+      align-items: center;
+      padding: 22px 0;
+      min-height: clamp(96px, 15vh, 148px);
+      opacity: 0;
+      animation: fadeUp .8s ease 1.2s forwards;
+      position: relative;
+      /* No frosted panel here — the background figure flows through the
+         bottom strip continuously. The text reads fine over the faint
+         watermark, so no backdrop is needed. */
+      background: transparent;
+    }
+    .bottom-col {
+      padding: 8px clamp(20px, 4vw, 60px);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      position: relative;
+      min-width: 0;
+    }
+    /* Dashed vertical dividers — pinned to the strip itself (not to the
+       column) so they always span the full strip height even when the
+       column content is short and auto-sized. */
+    .strip-bottom::before,
+    .strip-bottom::after {
+      content: '';
+      position: absolute;
+      top: 0; bottom: 0;
+      width: 1px;
+      background-image: linear-gradient(180deg,
+        var(--divider) 0, var(--divider) 8px,
+        transparent 8px, transparent 18px);
+      background-size: 1px 18px;
+      transform-origin: top center;
+      animation: divDrawV 1s cubic-bezier(.4, 0, .2, 1) 1.35s both;
+      pointer-events: none;
+    }
+    .strip-bottom::before { left: 33.333%; }
+    .strip-bottom::after  { left: 66.666%; }
+    @keyframes divDrawV {
+      from { transform: scaleY(0); }
+      to   { transform: scaleY(1); }
+    }
+
+    /* ── Bottom col 1 — subject info + quote ────────────────────────── */
+    .info-title {
+      font-size: clamp(13px, 1vw, 15px);
+      font-weight: 800;
+      color: var(--accent);
+      letter-spacing: .005em;
+    }
+    .info-title .dim {
+      color: var(--accent);
+      font-weight: 500;
+    }
+    .info-quote {
+      transition: opacity .35s ease, transform .35s ease;
+    }
+    .info-quote.is-fading { opacity: 0; transform: translateY(-4px); }
+    .quote-text {
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-size: clamp(13px, 1.1vw, 15px);
+      font-weight: 500;
+      color: var(--text-dim);
+      font-style: italic;
+      line-height: 1.45;
+    }
+    .quote-author {
+      display: block;
+      margin-top: 5px;
+      font-family: 'Montserrat', system-ui, sans-serif;
+      font-weight: 600;
+      font-size: clamp(11px, .9vw, 13px);
+      color: var(--text-mute);
+      letter-spacing: .04em;
+    }
+
+    /* ── Bottom col 2 — counter ─────────────────────────────────────── */
+    .col-counter {
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .counter-wrap {
+      display: flex;
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: center;
+      gap: 8px;
+      font-family: 'Montserrat', sans-serif;
+      font-size: clamp(18px, 1.8vw, 26px);
+      font-weight: 600;
+      color: var(--text-dim);
+      letter-spacing: .04em;
+      font-variant-numeric: tabular-nums;
+    }
+    .col-counter .count-done {
+      color: var(--accent);
+      font-weight: 700;
+      transition: color .35s ease;
+    }
+    .col-counter .count-sep { color: var(--accent); }
+    .col-counter .count-total { color: var(--accent); }
+    .col-counter .count-unit {
+      color: var(--text-mute);
+      font-size: .7em;
+      font-weight: 500;
+      letter-spacing: .06em;
+    }
+    .counter-caption {
+      margin-top: 8px;
+      font-size: 11px;
+      line-height: 1.2;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-mute);
+      text-align: center;
+    }
+
+    /* ── Bottom col 3 — percent ─────────────────────────────────────── */
+    .col-percent {
+      /* Centred inside the column (was flex-end which jammed the number
+         against the right edge of the strip). */
+      align-items: center;
+      justify-content: center;
+    }
+    .percent-wrap {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 4px;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 700;
+      line-height: 0.9;
+      font-variant-numeric: tabular-nums;
+    }
+    .percent-num {
+      color: var(--accent);
+      font-size: clamp(40px, 5vw, 70px);
+      letter-spacing: -.04em;
+      filter: drop-shadow(0 0 14px rgba(79,159,192,.22));
+      transition: filter .35s ease, transform .28s ease, opacity .28s ease;
+      will-change: transform, opacity;
+    }
+    .percent-sym {
+      color: var(--accent);
+      font-size: clamp(26px, 3vw, 42px);
+      font-weight: 700;
+      opacity: .85;
+    }
+    .percent-caption {
+      margin-top: 8px;
+      font-size: 11px;
+      line-height: 1.2;
+      letter-spacing: .16em;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--text-mute);
+      text-align: center;
+    }
+
+    /* ── States ─────────────────────────────────────────────────────── */
+    .percent-num.is-ticking {
+      transform: translateY(-5px) scale(1.025);
+      opacity: .78;
+    }
+
+    .stage.is-done .percent-num {
+      animation: percentBounce .7s cubic-bezier(.2, 1.4, .4, 1);
+    }
+    @keyframes percentBounce {
+      0% { transform: scale(1); } 50% { transform: scale(1.06); } 100% { transform: scale(1); }
+    }
+
+    /* ── Completion moment ("Дайын") ─────────────────────────────────────
+       A single bright band sweeps diagonally across the whole screen the
+       instant the job finishes — the celebratory beat before the redirect. */
+    .done-wave {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      pointer-events: none;
+      opacity: 0;
+      background: linear-gradient(115deg,
+        transparent 38%,
+        rgba(120,210,228,.30) 48%,
+        rgba(195,242,252,.55) 50%,
+        rgba(120,210,228,.30) 52%,
+        transparent 62%);
+      background-size: 250% 100%;
+      background-position: 150% 0;
+      mix-blend-mode: screen;
+    }
+    body.is-complete .done-wave {
+      animation: doneWave 1.15s cubic-bezier(.3,0,.2,1) both;
+    }
+    @keyframes doneWave {
+      0%   { opacity: 0;  background-position: 150% 0; }
+      14%  { opacity: 1; }
+      100% { opacity: 0;  background-position: -60% 0; }
+    }
+    /* The whole percent block gets a brief glow surge on completion. */
+    body.is-complete .percent-num {
+      text-shadow: 0 0 26px rgba(79,159,192,.6);
+      transition: text-shadow .5s ease;
+    }
+    .stage.is-error .dot { background: var(--error); animation: none; }
+    .stage.is-error .percent-num,
+    .stage.is-error .percent-sym { color: var(--error); }
+
+    .error-block {
+      grid-column: 1 / -1;
+      display: none;
+      padding: 14px 24px;
+      background: rgba(255, 82, 82, .08);
+      border-left: 2px solid var(--error);
+      font-size: 13px;
+      color: var(--text);
+    }
+    .error-block a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      margin-left: 8px;
+    }
+    .stage.is-error .error-block { display: block; }
+
+    /* ── Animations / utilities ─────────────────────────────────────── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Mobile ─────────────────────────────────────────────────────── */
+    @media (max-width: 720px) {
+      .strip-top { font-size: 10px; letter-spacing: .25em; }
+      .strip-bottom { grid-template-columns: 1fr; }
+      .bottom-col + .bottom-col::before {
+        left: 0; right: 0; top: 0; bottom: auto;
+        width: 100%; height: 1px;
+        background-image: linear-gradient(90deg,
+          var(--divider) 0, var(--divider) 8px,
+          transparent 8px, transparent 18px);
+        background-size: 18px 1px;
+      }
+      .col-percent { align-items: center; padding-right: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .orb, .particles { animation: none; }
+      .particles { display: none; }
+      .wordmark-block { animation: logoRise .5s ease both !important; }
+      .wordmark-breath { animation: none !important; }
+      .wordmark-block::before { display: none !important; }
+      .ts { animation: tsReveal .4s ease forwards; }
+      .ts-line { animation: lineDraw .5s ease forwards; }
+      .bg-shapes, .bg-glint, .ambient-light, .screen-wave { animation: none; }
+      .bg-glint { display: none; }
+      /* New progress animations: keep the meaning, drop the motion. */
+      .ts.is-done::after { animation: none; }
+      .done-wave { display: none; }
+      #top-status { transition: none; }
+      .wordmark-block::after { transition: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient background layers -->
+  <div class="ambient-light" id="ambient-light"></div>
+  <div class="screen-wave"></div>
+  <canvas class="particles" id="particles"></canvas>
+  <div class="orbs">
+    <div class="orb o1"></div>
+    <div class="orb o2"></div>
+    <div class="orb o3"></div>
+  </div>
+
+  <!-- Geometric shapes watermark (the dashed parallelograms artwork) with a
+       sweeping light glint that makes the lines glow as it passes. -->
+  <div class="bg-watermark" aria-hidden="true">
+    <div class="bg-shapes"></div>
+    <div class="bg-glint"></div>
+  </div>
+
+  <!-- Completion light sweep (plays once when the job finishes) -->
+  <div class="done-wave" aria-hidden="true"></div>
+
+  <div class="stage" id="stage">
+
+    <!-- ── TOP STRIP ──────────────────────────────────────────────── -->
+    <div class="strip-top">
+      <span class="dot"></span>
+      <span id="top-status">ІСКЕ ҚОСЫЛУДА</span>
+    </div>
+
+    <!-- ── DIVIDER ────────────────────────────────────────────────── -->
+    <div class="div-h"></div>
+
+    <!-- ── MIDDLE STRIP — logo + timeline ─────────────────────────── -->
+    <div class="strip-middle">
+      <div class="logo-area">
+        <div class="wordmark-block">
+          <div class="wordmark-breath">
+            <img src="/static/juzosup.png" class="wordmark-logo" alt="JUZO Online — EDU"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="timeline" aria-label="Этап барысы">
+        <div class="timeline-head">
+          <span>ПРОЦЕСС</span>
+          <span class="timeline-count"><span class="cur" id="tl-current">1</span> / <span id="tl-total">{{ stages | length }}</span></span>
+        </div>
+        <ol class="timeline-stages" id="timeline-stages">
+          {% for s in stages %}
+          <li class="ts" data-pct="{{ s.p }}" data-idx="{{ loop.index0 }}">
+            <span class="ts-num">{{ "%02d" | format(loop.index) }}</span>
+            <span class="ts-title">{{ s.title | replace('…', '') | trim }}</span>
+            <span class="ts-line"></span>
+          </li>
+          {% endfor %}
+        </ol>
+      </div>
+    </div>
+
+    <!-- ── DIVIDER ────────────────────────────────────────────────── -->
+    <div class="div-h"></div>
+
+    <!-- ── BOTTOM STRIP — 3 columns ───────────────────────────────── -->
+    <div class="strip-bottom">
+      <div class="bottom-col col-info">
+        <div class="info-title" id="info-title">{{ subtitle_html | safe }}</div>
+        <div class="info-quote" id="info-quote">
+          <span class="quote-text"   id="quote-text">«Білімді мыңды жығады, білекті бірді жығады.»</span>
+          <span class="quote-author" id="quote-author">— Қазақ мақалы</span>
+        </div>
+      </div>
+
+      <div class="bottom-col col-counter">
+        <div class="counter-wrap">
+          <span class="count-done"  id="count-done">0</span>
+          <span class="count-sep">/</span>
+          <span class="count-total" id="count-total">0</span>
+          <span class="count-unit"  id="count-unit">{{ unit | lower }}</span>
+        </div>
+        <div class="counter-caption">ӨҢДЕЛУ БАРЫСЫ</div>
+      </div>
+
+      <div class="bottom-col col-percent">
+        <div class="percent-wrap">
+          <span class="percent-num" id="percent">0</span>
+          <span class="percent-sym">%</span>
+        </div>
+        <div class="percent-caption" id="percent-caption">{{ stages | length }} кезеңнің орындалуы</div>
+      </div>
+
+      <div class="error-block" id="error-block"></div>
+    </div>
+  </div>
+
+  <!-- Hidden form posted to start the job -->
+  <form id="start-form" method="post" action="{{ start_url }}" style="display:none">
+    {% for k, v in hidden_fields.items() %}
+    <input type="hidden" name="{{ k }}" value="{{ v }}"/>
+    {% endfor %}
+  </form>
+
+  <script>
+    // ── Drifting particle background ───────────────────────────────────
+    (function() {
+      const canvas = document.getElementById('particles');
+      if (!canvas) return;
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+      const orbsEl = document.querySelector('.orbs');
+      const bgWatermarkEl = document.querySelector('.bg-watermark');
+      const ambientEl = document.getElementById('ambient-light');
+      const ctx = canvas.getContext('2d');
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      let W = 0, H = 0;
+
+      function resize() {
+        W = window.innerWidth;
+        H = window.innerHeight;
+        canvas.width  = W * dpr;
+        canvas.height = H * dpr;
+        canvas.style.width  = W + 'px';
+        canvas.style.height = H + 'px';
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+      }
+      window.addEventListener('resize', resize, { passive: true });
+      resize();
+
+      const TAU  = Math.PI * 2;
+      const rand = (min, max) => min + Math.random() * (max - min);
+
+      const baseDensity = 0.00009;
+      const count = Math.max(90, Math.min(280, Math.round(W * H * baseDensity)));
+
+      const particles = [];
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x:  Math.random() * W,
+          y:  Math.random() * H,
+          r:  rand(0.4, 1.8),
+          vx: rand(-0.08, 0.08),
+          vy: rand(-0.35, -0.08),
+          baseO: rand(0.05, 0.22),
+          maxO:  rand(0.35, 0.85),
+          phase: Math.random() * TAU,
+          speed: rand(0.004, 0.012),
+          bright: Math.random() < 0.08,
+        });
+      }
+
+      let targetMx = 0, targetMy = 0;
+      let curMx    = 0, curMy    = 0;
+      let mouseX = -9999, mouseY = -9999;
+      window.addEventListener('mousemove', (e) => {
+        targetMx = (e.clientX / W) - 0.5;
+        targetMy = (e.clientY / H) - 0.5;
+        mouseX = e.clientX;
+        mouseY = e.clientY;
+      }, { passive: true });
+      window.addEventListener('mouseleave', () => { targetMx = 0; targetMy = 0; mouseX = -9999; mouseY = -9999; });
+
+      const PARTICLE_PARALLAX = 18;
+      const ORB_PARALLAX      = 36;
+      const LINK_DIST    = Math.max(90, Math.min(140, Math.round(Math.sqrt(W * H) * 0.085)));
+      const LINK_DIST_SQ = LINK_DIST * LINK_DIST;
+
+      function draw() {
+        curMx += (targetMx - curMx) * 0.06;
+        curMy += (targetMy - curMy) * 0.06;
+        const offX = curMx * PARTICLE_PARALLAX;
+        const offY = curMy * PARTICLE_PARALLAX;
+        if (orbsEl) {
+          orbsEl.style.transform = `translate3d(${curMx * ORB_PARALLAX}px, ${curMy * ORB_PARALLAX}px, 0)`;
+        }
+        if (bgWatermarkEl) {
+          bgWatermarkEl.style.transform = `translate3d(${curMx * -14}px, ${curMy * -10}px, 0)`;
+        }
+        if (ambientEl) {
+          ambientEl.style.transform = `translate3d(${curMx * 22}px, ${curMy * 16}px, 0)`;
+        }
+
+        ctx.clearRect(0, 0, W, H);
+
+        const buckets = [
+          { maxRatio: 0.33, alpha: 0.16 },
+          { maxRatio: 0.66, alpha: 0.09 },
+          { maxRatio: 1.00, alpha: 0.04 },
+        ];
+        ctx.lineWidth = 0.45;
+        for (let b = 0; b < buckets.length; b++) {
+          const bucket = buckets[b];
+          const minRatio = b === 0 ? 0 : buckets[b - 1].maxRatio;
+          ctx.strokeStyle = `rgba(79,159,192,${bucket.alpha * 0.55})`;
+          ctx.beginPath();
+          let drewAny = false;
+          for (let i = 0; i < particles.length; i++) {
+            const p1 = particles[i];
+            const x1 = p1.x + offX, y1 = p1.y + offY;
+            for (let j = i + 1; j < particles.length; j++) {
+              const p2 = particles[j];
+              const dx = p2.x - p1.x;
+              const dy = p2.y - p1.y;
+              const dSq = dx * dx + dy * dy;
+              if (dSq >= LINK_DIST_SQ) continue;
+              const ratio = Math.sqrt(dSq) / LINK_DIST;
+              if (ratio < minRatio || ratio >= bucket.maxRatio) continue;
+              ctx.moveTo(x1, y1);
+              ctx.lineTo(p2.x + offX, p2.y + offY);
+              drewAny = true;
+            }
+          }
+          if (drewAny) ctx.stroke();
+        }
+
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+
+          const mdx = p.x - mouseX;
+          const mdy = p.y - mouseY;
+          const md2 = mdx * mdx + mdy * mdy;
+          if (md2 < 11000) {
+            const force = (1 - md2 / 11000) * 1.35;
+            const ang = Math.atan2(mdy, mdx);
+            p.x += Math.cos(ang) * force;
+            p.y += Math.sin(ang) * force;
+          }
+
+          p.x += p.vx;
+          p.y += p.vy;
+          if (p.y < -2)    { p.y = H + 2; p.x = Math.random() * W; }
+          if (p.y > H + 2) { p.y = -2;    p.x = Math.random() * W; }
+          if (p.x < -2)     p.x = W + 2;
+          if (p.x > W + 2)  p.x = -2;
+
+          p.phase += p.speed;
+          const t = (Math.sin(p.phase) + 1) * 0.5;
+          const o = p.baseO + (p.maxO - p.baseO) * t;
+
+          const dx = p.x + offX;
+          const dy = p.y + offY;
+
+          if (p.bright) {
+            const grad = ctx.createRadialGradient(dx, dy, 0, dx, dy, p.r * 6);
+            grad.addColorStop(0, `rgba(79,159,192,${o * 0.35})`);
+            grad.addColorStop(1, 'rgba(120,210,228,0)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(dx, dy, p.r * 6, 0, TAU);
+            ctx.fill();
+          }
+
+          ctx.fillStyle = `rgba(79,159,192,${o * 0.70})`;
+          ctx.beginPath();
+          ctx.arc(dx, dy, p.r, 0, TAU);
+          ctx.fill();
+        }
+
+        requestAnimationFrame(draw);
+      }
+      requestAnimationFrame(draw);
+    })();
+
+    // ── Server-supplied config ─────────────────────────────────────────
+    const START_URL         = {{ start_url        | tojson }};
+    const PROGRESS_URL_BASE = {{ progress_url_base | tojson }};
+    const RESULT_URL        = {{ result_url       | tojson }};
+    const UNIT              = {{ unit             | tojson }};
+    const STAGES            = {{ stages           | tojson }};
+
+    // ── Kazakh wisdom rotation ─────────────────────────────────────────
+    const QUOTES = [
+      { t: "Білімді мыңды жығады, білекті бірді жығады.",        a: "Қазақ мақалы" },
+      { t: "Көп оқыған білемін деме, көп көрген білемін де.",     a: "Қазақ мақалы" },
+      { t: "Кітап — білім бұлағы.",                               a: "Қазақ мақалы" },
+      { t: "Күн сайын 1% жақсарсаң, бір жылда 37 есе жақсарасың.", a: "James Clear" },
+      { t: "Болашаққа сенім — өткен күнді бағалаудан басталады.",  a: "Абай Құнанбайұлы" },
+      { t: "Оқу — инемен құдық қазғандай.",                       a: "Қазақ мақалы" },
+      { t: "Жақсы ұстаз — әркімге жақын.",                        a: "Қазақ мақалы" },
+      { t: "Ұстаз балықты беру емес, балық аулауды үйрету керек.", a: "Конфуций" },
+      { t: "Тіл — қарудан күшті.",                                a: "Қазақ мақалы" },
+      { t: "Сабырлы — үстем.",                                    a: "Қазақ мақалы" },
+      { t: "Адам — адамзаттың алтын діңгегі.",                    a: "Қазақ мақалы" },
+      { t: "Жетістік — кішкентай күш-жігерлердің күн сайынғы қайталануы.", a: "Robert Collier" },
+      { t: "Білім алу — кеме жасау сияқты, бір күн тоқтасаң — кері жүзесің.", a: "Қытай мақалы" },
+      { t: "Ең үлкен білім — өзіңді тану.",                       a: "Сократ" },
+      { t: "Ұстаз — балаға өзін емес, өмірді көрсетеді.",         a: "Шәкәрім" },
+      { t: "Талап, еңбек, терең ой, қанағат, рақым — ойлап қой.", a: "Абай" },
+    ];
+
+    // ── DOM refs ──────────────────────────────────────────────────────
+    const stage     = document.getElementById('stage');
+    const pctEl     = document.getElementById('percent');
+    const statusEl  = document.getElementById('top-status');
+    const errorEl   = document.getElementById('error-block');
+    const quoteBox  = document.getElementById('info-quote');
+    const quoteTxt  = document.getElementById('quote-text');
+    const quoteAth  = document.getElementById('quote-author');
+    const countDone = document.getElementById('count-done');
+    const countTot  = document.getElementById('count-total');
+    const tlStages  = document.querySelectorAll('#timeline-stages .ts');
+    const tlCurrent = document.getElementById('tl-current');
+
+    const POLL_INTERVAL = 700;
+    const MAX_ERRORS    = 5;
+
+    let jobId        = null;
+    let pollTimer    = null;
+    let totalKnown   = 0;
+    let errorStreak  = 0;
+    let displayedPct = 0;
+    let quoteIdx     = Math.floor(Math.random() * QUOTES.length);
+
+    // ── Quote rotation ────────────────────────────────────────────────
+    function showQuote(i) {
+      quoteBox.classList.add('is-fading');
+      setTimeout(() => {
+        const q = QUOTES[i];
+        quoteTxt.textContent = '«' + q.t + '»';
+        quoteAth.textContent = '— ' + q.a;
+        quoteBox.classList.remove('is-fading');
+      }, 360);
+    }
+    showQuote(quoteIdx);
+    setInterval(() => {
+      quoteIdx = (quoteIdx + 1) % QUOTES.length;
+      showQuote(quoteIdx);
+    }, 5500);
+
+    // ── Percent animation w/ slot-machine scramble for big jumps ──────
+    function animatePercent(target) {
+      if (target === displayedPct) return;
+      const from = displayedPct;
+      const diff = Math.abs(target - from);
+
+      function easeFromTo(start, end, dur) {
+        const t0 = performance.now();
+        function step(now) {
+          const t = Math.min(1, (now - t0) / dur);
+          const eased = 1 - Math.pow(1 - t, 3);
+          pctEl.textContent = Math.round(start + (end - start) * eased);
+          pctEl.classList.add('is-ticking');
+          if (t < 1) requestAnimationFrame(step);
+          else { displayedPct = end; pctEl.classList.remove('is-ticking'); }
+        }
+        requestAnimationFrame(step);
+      }
+
+      if (diff < 5) {
+        easeFromTo(from, target, 450);
+        return;
+      }
+
+      const scrambleDur = 280;
+      const scrambleStart = performance.now();
+      function scrambleStep(now) {
+        const t = (now - scrambleStart) / scrambleDur;
+        if (t < 1) {
+          const rnd    = Math.floor(Math.random() * 100);
+          const biased = Math.round(rnd * (1 - t) + target * t);
+          pctEl.textContent = biased;
+          pctEl.classList.add('is-ticking');
+          requestAnimationFrame(scrambleStep);
+        } else {
+          easeFromTo(from + Math.round((target - from) * 0.5), target, 220);
+        }
+      }
+      requestAnimationFrame(scrambleStep);
+    }
+
+    function pickStage(pct) {
+      let idx = 0;
+      for (let i = 0; i < STAGES.length; i++) {
+        if (pct >= STAGES[i].p) idx = i;
+      }
+      return STAGES[idx];
+    }
+
+    let statusSwapTimer = null;
+    function setStatus(text) {
+      const next = (text || '').toUpperCase();
+      if (statusEl.textContent === next) return;   // no change → no flicker
+      statusEl.classList.add('is-swapping');        // blur+slide out
+      clearTimeout(statusSwapTimer);
+      statusSwapTimer = setTimeout(() => {
+        statusEl.textContent = next;
+        statusEl.classList.remove('is-swapping');   // blur+slide back in
+      }, 200);
+    }
+
+    function setCounts(done, total) {
+      if (countDone) countDone.textContent = done;
+      if (countTot)  countTot.textContent  = total;
+    }
+
+    // ── Timeline updater ──────────────────────────────────────────────
+    let lastActiveIdx = -2;
+    function updateTimeline(pct) {
+      if (!tlStages || tlStages.length === 0) return;
+      // ⚠️ IMPORTANT: active stage is picked by walking the SERVER-supplied
+      // STAGES[i].p thresholds (0, 12, 35, 65, 88…), NOT by dividing 100
+      // into equal segments of 100/N. The real progress isn't linear — a
+      // cheap fetch covers 0–12%, the heavy aggregate spans 35–65%, etc.
+      // Equal divisions would make the timeline lie about real progress.
+      let activeIdx = 0;
+      for (let i = 0; i < STAGES.length; i++) {
+        if (pct >= STAGES[i].p) activeIdx = i;
+      }
+      if (activeIdx === lastActiveIdx) return;
+      lastActiveIdx = activeIdx;
+
+      tlStages.forEach((li, i) => {
+        li.classList.remove('is-pending', 'is-active', 'is-done', 'is-pulsing');
+        if (i < activeIdx)        li.classList.add('is-done');
+        else if (i === activeIdx) li.classList.add('is-active');
+        else                      li.classList.add('is-pending');
+      });
+
+      const activeLi = tlStages[activeIdx];
+      if (activeLi) {
+        activeLi.classList.add('is-pulsing');
+        setTimeout(() => activeLi.classList.remove('is-pulsing'), 760);
+      }
+
+      if (tlCurrent) tlCurrent.textContent = activeIdx + 1;
+    }
+    updateTimeline(0);
+
+    // ── Chase wave ────────────────────────────────────────────────────
+    // Cycles through the stages one by one, briefly lighting each up
+    // before moving on — gives the "staircase" the alive, sequential
+    // feel the user wanted. Skips the currently-active stage (which is
+    // always lit) and done stages (which stay muted), so it only ever
+    // animates the *pending* ones. Re-enters from the top once it falls
+    // off the end of the list.
+    let chaseIdx = 0;
+    const CHASE_INTERVAL = 650;
+    function chaseWave() {
+      if (!tlStages || tlStages.length === 0) return;
+      tlStages.forEach(li => li.classList.remove('is-chasing'));
+
+      // Walk forward until we find a pending stage (skip active/done).
+      // If everything is active/done, no chase highlight is shown.
+      let scanned = 0;
+      while (scanned < tlStages.length) {
+        const li = tlStages[chaseIdx];
+        chaseIdx = (chaseIdx + 1) % tlStages.length;
+        scanned++;
+        if (!li) continue;
+        if (li.classList.contains('is-active') || li.classList.contains('is-done')) continue;
+        li.classList.add('is-chasing');
+        return;
+      }
+    }
+    setInterval(chaseWave, CHASE_INTERVAL);
+    chaseWave();   // first pulse immediately so there's no dead beat
+
+    // ── Job lifecycle ─────────────────────────────────────────────────
+    async function startJob() {
+      const data = new FormData(document.getElementById('start-form'));
+      try {
+        const resp = await fetch(START_URL, { method: 'POST', body: data });
+        const json = await resp.json();
+        if (!resp.ok || json.error) {
+          showError(json.error || 'Қате шықты');
+          return;
+        }
+        jobId = json.job_id;
+        totalKnown = json.total || 0;
+        setCounts(0, totalKnown);
+        schedulePoll();
+      } catch (e) {
+        showError('Сервермен байланыс үзілді. Бетті жаңартып көріңіз.');
+      }
+    }
+
+    function schedulePoll() {
+      poll();
+      pollTimer = setInterval(poll, POLL_INTERVAL);
+    }
+
+    async function poll() {
+      try {
+        const resp = await fetch(`${PROGRESS_URL_BASE}/${jobId}`);
+        if (!resp.ok) throw new Error(resp.status);
+        const json = await resp.json();
+        errorStreak = 0;
+
+        const status = json.status || 'running';
+        const qpos   = json.queue_position || 0;
+        const total  = json.total || totalKnown;
+        const done   = json.done  || 0;
+        const pct    = total > 0 ? Math.round((done / total) * 100) : 0;
+
+        if (status === 'failed') {
+          clearInterval(pollTimer);
+          // Сервер может передать конкретную причину (сколько групп не
+          // загрузилось и т.п.) — показываем её вместо общей фразы.
+          showError(json.error || 'Отчёт жасау кезінде қате шықты. Қайталап көріңіз.');
+          return;
+        }
+
+        if (status === 'initializing') {
+          setStatus('Іске қосылуда');
+          return;
+        }
+
+        if (status === 'queued' || (status === 'running' && qpos > 0)) {
+          setStatus('Кезек: ' + qpos + '-ші');
+          return;
+        }
+
+        const st = pickStage(pct);
+        setStatus(st.title.replace(/…+$/, ''));
+        animatePercent(pct);
+        setCounts(done, total);
+        updateTimeline(pct);
+        // Logo aura brightens/swells in step with real progress.
+        stage.style.setProperty('--logo-glow', (pct / 100).toFixed(3));
+
+        if (status === 'done') {
+          clearInterval(pollTimer);
+          stage.classList.add('is-done');
+          setStatus('Дайын');
+          animatePercent(100);
+          stage.style.setProperty('--logo-glow', '1');
+          tlStages.forEach(li => {
+            li.classList.remove('is-pending', 'is-active', 'is-chasing', 'is-pulsing');
+            li.classList.add('is-done');
+          });
+          if (tlCurrent) tlCurrent.textContent = STAGES.length;
+
+          // ── Completion moment ──────────────────────────────────────────
+          // One full-screen light sweep + a top-down ripple through every
+          // stage dot, so finishing feels like a rewarded beat before the
+          // redirect.
+          document.body.classList.add('is-complete');
+          tlStages.forEach((li, i) => {
+            setTimeout(() => {
+              li.classList.add('is-pulsing');
+              setTimeout(() => li.classList.remove('is-pulsing'), 720);
+            }, i * 110);
+          });
+
+          // Pass the job id explicitly — the result endpoint must not rely on
+          // the session's "last job" slot, which a parallel tab may have
+          // overwritten while this report was building.
+          const sep = RESULT_URL.includes('?') ? '&' : '?';
+          const resultHref = RESULT_URL + sep + 'job=' + encodeURIComponent(jobId);
+          // Slightly longer hold so the completion sweep + ripple can play.
+          setTimeout(() => { window.location.href = resultHref; }, 1150);
+        }
+      } catch (e) {
+        errorStreak++;
+        if (errorStreak >= MAX_ERRORS) {
+          showError('Сервермен байланыс үзілді. Бетті жаңартып көріңіз.');
+        }
+      }
+    }
+
+    function showError(msg) {
+      if (pollTimer) clearInterval(pollTimer);
+      stage.classList.add('is-error');
+      setStatus('Қате');
+      errorEl.innerHTML = msg + ' <a href="/dashboard">Артқа қайту</a>';
+    }
+
+    window.addEventListener('DOMContentLoaded', startJob);
+  </script>
+</body>
+</html>
